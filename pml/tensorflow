@@ -1,0 +1,84 @@
+#Adapt the Script that implements a neural network with PyTorch (over the iris or mnist datasets) code available in the Overview notebook such that it is implemented with TensorFlow instead of PyTorch. 
+#Adjust the parameters to try to obtain a global accuracy close to 90% for the MNIST dataset.
+
+
+
+import tensorflow as tf
+from sklearn.datasets import fetch_openml
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import accuracy_score, confusion_matrix
+import matplotlib.pyplot as plt
+import numpy as np
+
+CREATE_CLASS=True # Create class from scratch; otherwise use Sequential to create the class
+SGD=False # SGD or Adam
+IRIS=False # iris or mnist change to False to use mnist
+SHOW=False # returns picture of digit for MNIST
+
+# Splitting data into train and test sets - treino e validação 80/20 =>0.2
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Standardize features
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train)
+X_test = scaler.transform(X_test)
+
+# Convert numpy arrays to TensorFlow tensors
+X_train_tensor = tf.convert_to_tensor(X_train, dtype=tf.float32)
+X_test_tensor = tf.convert_to_tensor(X_test, dtype=tf.float32)
+y_train_tensor = tf.convert_to_tensor(y_train, dtype=tf.int64)
+y_test_tensor = tf.convert_to_tensor(y_test, dtype=tf.int64)
+
+# Model parameters
+input_size = X_train_tensor.shape[1]
+hidden_size = 64  
+output_size = 10  
+batch_size = 120
+num_epochs = 30  
+learning_rate = 0.002
+dropout_rate = 0.25
+
+# Create TensorFlow Dataset for mini-batch gradient descent
+train_dataset = tf.data.Dataset.from_tensor_slices((X_train_tensor, y_train_tensor)).shuffle(60000).batch(batch_size)
+
+# Define the TensorFlow model
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(hidden_size, activation='relu', input_shape=(input_size,)),
+    tf.keras.layers.Dropout(dropout_rate),
+    tf.keras.layers.Dense(hidden_size, activation='relu'),
+    tf.keras.layers.Dropout(dropout_rate),
+    tf.keras.layers.Dense(output_size, activation='softmax')
+])
+
+# Compile the model
+model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
+              loss='sparse_categorical_crossentropy',
+              metrics=['accuracy'])
+
+# Train the model
+history = model.fit(train_dataset, epochs=num_epochs)
+
+# Evaluate the model on test data
+test_loss, test_accuracy = model.evaluate(X_test_tensor, y_test_tensor, verbose=2)
+print(f'\nTest accuracy: {test_accuracy:.4f}')
+
+# Plotting train and test losses
+plt.plot(history.history['loss'], label='Train Loss')
+plt.xlabel('Epoch')
+plt.ylabel('Loss')
+plt.title('Train Loss')
+plt.legend()
+plt.show()
+
+# Predict and calculate accuracy
+y_pred_probs = model.predict(X_test_tensor)
+y_pred = np.argmax(y_pred_probs, axis=1)
+accuracy = accuracy_score(y_test, y_pred)
+print(f'Accuracy on test set: {accuracy:.4f}')
+
+# Confusion matrix
+cm = confusion_matrix(y_test, y_pred)
+disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=np.unique(y))
+disp.plot()
+plt.show()
