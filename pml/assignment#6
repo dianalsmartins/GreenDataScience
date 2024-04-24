@@ -1,0 +1,152 @@
+#@title Script that implements a convolutional neural network with PyTorch over the mnist 8 by 8 practice data set
+# code adapted from https://github.com/rasbt/machine-learning-book/blob/main/ch14/ch14_part1.py
+
+'''
+This code does the following:
+    Splits the dataset into training and testing sets.
+    Standardizes the features using StandardScaler.
+    Reshapes dataset to fit the model
+    Instantiates the model (CNN)
+    Defines the loss function (Cross Entropy Loss) and optimizer (Adam).
+    Trains the model for num_epochs epochs.
+    Tests the trained model on the test set and evaluates the accuracy.
+'''
+
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torchsummary import summary
+from torch.utils.data import DataLoader, TensorDataset
+#from sklearn.datasets import  load_digits
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import ConfusionMatrixDisplay
+import matplotlib.pyplot as plt
+import random
+import numpy as np
+
+from tqdm import tqdm
+import torchvision
+
+
+
+################################################################################ Data and parameters
+# Download CIFAR-10 dataset
+trainset = torchvision.datasets.CIFAR10(root='./data', train=True, download=True)
+testset = torchvision.datasets.CIFAR10(root='./data', train=False, download=True)
+
+# Convert images to numpy arrays
+X_train = np.array(trainset.data)
+y_train = np.array(trainset.targets)
+X_test = np.array(testset.data)
+y_test = np.array(testset.targets)
+
+# Normalize pixel values to range [0, 1]
+X_train = X_train.astype(np.float32) / 255.0
+X_test = X_test.astype(np.float32) / 255.0
+
+# CIFAR-10 has 3 channels, so no need to reshape the images
+
+
+# parameter constants
+test_size=0.2
+hidden_size = 64
+batch_size = 256
+num_epochs = 5
+learning_rate = 0.001
+regularization_param = 0.001
+dropout_p = 0.1
+
+
+########################################################################### train and test, pre-processing
+# Splitting data into train and test sets
+####prof: X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=42)
+
+X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=test_size, random_state=42)
+
+
+# Standardize features
+#scaler = StandardScaler()
+#print(X_train.shape)
+#X_train = scaler.fit_transform(X_train)
+#X_test = scaler.transform(X_test)
+
+
+
+# mnist data set has examples with 64 attributes
+# We need to reshape that information into NCHW (batch size, channels, height, width)
+#def reshape_mnist(X,W,H):
+#    X=X.reshape((X.shape[0],W,H))
+#    return np.expand_dims(X,1) # one channel
+
+# Convert numpy arrays to PyTorch tensors
+X_train_tensor = torch.tensor(X_train.transpose(0, 3, 1, 2), dtype=torch.float32)
+X_val_tensor = torch.tensor(X_val.transpose(0, 3, 1, 2), dtype=torch.float32)
+X_test_tensor = torch.tensor(X_test.transpose(0, 3, 1, 2), dtype=torch.float32)
+y_train_tensor = torch.tensor(y_train, dtype=torch.long)
+y_val_tensor = torch.tensor(y_val, dtype=torch.long)
+y_test_tensor = torch.tensor(y_test, dtype=torch.long)
+print('Number of examples in training set:',X_train_tensor.shape)
+print('Number of examples in test set:', X_test_tensor.shape)
+
+# Instantiate the model
+#input_size = X_train_tensor.shape[1]
+#output_size = len(examples.target_names)
+
+
+# Create DataLoader
+train_loader = DataLoader(TensorDataset(X_train_tensor, y_train_tensor), batch_size=batch_size, shuffle=True)
+val_loader = DataLoader(TensorDataset(X_val_tensor, y_val_tensor), batch_size=batch_size, shuffle=False)
+test_loader = DataLoader(TensorDataset(X_test_tensor, y_test_tensor), batch_size=batch_size, shuffle=False)
+
+# Define the number of classes
+num_classes = 10
+
+
+
+
+
+###################################################################################### CNN  model
+model = nn.Sequential(
+    nn.Conv2d(3, 16, kernel_size=3, padding=1),
+    nn.ReLU(),
+    nn.MaxPool2d(kernel_size=2, stride=2),
+    nn.Conv2d(16, 32, kernel_size=3, padding=1),
+    nn.ReLU(),
+    nn.MaxPool2d(kernel_size=2, stride=2),
+    nn.Flatten(),
+    nn.Linear(32 * 8 * 8, hidden_size),
+    nn.ReLU(),
+    nn.Linear(hidden_size, hidden_size),
+    nn.ReLU(),
+    nn.Linear(hidden_size, num_classes)
+)
+
+
+# model description
+#summary(model,(1,8,8)) # C, H, W
+summary(model, (3, 32, 32))
+
+# Define loss function and optimizer
+# Either torch.nn.NLLLoss or torch.nn.CrossEntropyLoss can be used: CrossEntropyLoss (https://pytorch.org/docs/stable/generated/torch.nn.CrossEntropyLoss.html) implements softmax internally
+loss_fn = nn.CrossEntropyLoss()
+
+# Optimizer: optimizer object that will hold the current state and will update the parameters based on the computed gradients
+# for param in model.parameters(): print(param.data)
+optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=regularization_param)
+
+
+# Train the model and predict on test samples to estimate accuracy
+# history stores losses, accuracy, actual labels and predictions
+history = train(model, optimizer, loss_fn, num_epochs, train_dl, test_dl)
+#history = {'train_loss': [], 'val_loss': [], 'train_acc': [], 'val_acc': []}
+#######Porque é que se muda para training loop?
+
+
+# plot losses along epochs
+plot_losses(history)
+# plot confusion matrix
+plot_accuracy_from_predictions(history)
+#plot_accuracy(hist)
+
+
