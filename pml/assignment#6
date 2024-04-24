@@ -29,6 +29,57 @@ from tqdm import tqdm
 import torchvision
 
 
+def train(model, optimizer, loss_fn, num_epochs, train_dl, valid_dl):
+    '''
+    Main function to train and test the model
+    '''
+    # lists to strore losses and accuracies
+    loss_hist_train = [0] * num_epochs
+    accuracy_hist_train = [0] * num_epochs
+    loss_hist_valid = [0] * num_epochs
+    accuracy_hist_valid = [0] * num_epochs
+    # main loop through epochs
+    for epoch in range(num_epochs):
+        # training mode
+        model.train()
+        for x_batch, y_batch in train_dl:
+            # core of the learning process: predict and fit
+            pred = model(x_batch)
+            loss = loss_fn(pred, y_batch)
+            loss.backward()
+            optimizer.step()
+            optimizer.zero_grad()
+            # compute train loss and accuracy
+            loss_hist_train[epoch] += loss.item()*y_batch.size(0)
+            is_correct = (torch.argmax(pred, dim=1) == y_batch).float()
+            accuracy_hist_train[epoch] += is_correct.sum()
+        # compute average loss per epoch
+        loss_hist_train[epoch] /= len(train_dl.dataset)
+        accuracy_hist_train[epoch] /= len(train_dl.dataset)
+        # we also put the model in evaluation mode, so that specific layers such as dropout or batch normalization layers behave correctly.
+        model.eval()
+        with torch.no_grad():
+            for x_batch, y_batch in valid_dl:
+                # predict
+                pred = model(x_batch)
+                loss = loss_fn(pred, y_batch)
+                loss_hist_valid[epoch] += loss.item()*y_batch.size(0)
+                is_correct = (torch.argmax(pred, dim=1) == y_batch).float()
+                accuracy_hist_valid[epoch] += is_correct.sum()
+                if epoch==0:
+                    preds,actuals=torch.argmax(pred, dim=1),y_batch
+                else:
+                    preds=torch.cat((preds,torch.argmax(pred, dim=1)),dim=0)
+                    actuals=torch.cat((actuals,y_batch),dim=0)
+        # compute average loss per epoch
+        loss_hist_valid[epoch] /= len(valid_dl.dataset)
+        accuracy_hist_valid[epoch] /= len(valid_dl.dataset)
+        # print accuracy
+        if (epoch+1) % 100==0:
+            print(f'Epoch {epoch+1} accuracy: {accuracy_hist_train[epoch]:.4f} val_accuracy: {accuracy_hist_valid[epoch]:.4f}')
+    return loss_hist_train, loss_hist_valid, accuracy_hist_train, accuracy_hist_valid, preds,actuals
+
+
 
 ################################################################################ Data and parameters
 # Download CIFAR-10 dataset
