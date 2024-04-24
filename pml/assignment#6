@@ -1,3 +1,4 @@
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -13,7 +14,6 @@ import numpy as np
 
 from tqdm import tqdm
 import torchvision
-
 
 def train(model, optimizer, loss_fn, num_epochs, train_dl, valid_dl):
     '''
@@ -66,7 +66,6 @@ def train(model, optimizer, loss_fn, num_epochs, train_dl, valid_dl):
     return loss_hist_train, loss_hist_valid, accuracy_hist_train, accuracy_hist_valid, preds,actuals
 
 
-
 def plot_losses(hist):
     ''' plots train and test loss
     Input
@@ -105,7 +104,6 @@ def plot_accuracy_from_predictions(hist):
     accuracy=np.sum(np.diagonal(disp.confusion_matrix))/np.sum(disp.confusion_matrix)
     print(f'Accuracy on test set: {accuracy:.4f}')
     plt.show()
-
 
 
 
@@ -217,12 +215,11 @@ optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=regula
 
 # Train the model and predict on test samples to estimate accuracy
 # history stores losses, accuracy, actual labels and predictions
-history = train(model, optimizer, loss_fn, num_epochs, train_dl, test_dl)
+history = train(model, optimizer, loss_fn, num_epochs, train_loader, test_loader)
 
 # plot losses along epochs
 plot_losses(history)
 # plot confusion matrix
 plot_accuracy_from_predictions(history)
 #plot_accuracy(hist)
-
 
